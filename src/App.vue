@@ -1,12 +1,49 @@
 <template>
   <div id="app">
-    <HelloWorld msg="Welcome to Your Vue.js App"/>
-    check console log
+    <h2>Ethereum to Aergo</h2>
+    <h3>Lock ERC-721 to Eth Merkle Bridge</h3>
+    <div class="input-group">
+      <input v-model="eth_lock_tokenId" type="text" class="form-text" placeholder="ERC-721 NFT ID to Transfer">
+      <input v-model="aergo_receiver" type="text" class="form-text" placeholder="Receiver Aergo Address">
+      <span class="input-group-btn">
+        <button class="btn btn-default" type="button">Lock ERC-721</button>
+      </span>
+    </div>
+    <h3>Mint ARC-2 from Aergo Merkle Bridge</h3>
+    <div class="input-group">
+      <input v-model="eth_lock_tokenId" type="text" class="form-text" placeholder="ERC-721 NFT ID to Transfer">
+      <input v-model="aergo_receiver" type="text" class="form-text" placeholder="Receiver Aergo Address"><br/>
+      <input v-model="eth_lock_blockheight" type="text" class="form-text" placeholder="Lock Block Height on Ethereum">
+      <span class="input-group-btn">
+        <button class="btn btn-default" type="button">MINT ARC-2</button>
+      </span>
+    </div>
+    
+    <h2>Aergo to Ethereum</h2>
+    <h3>Burn ARC-2 on Aergo Merkle Bridge</h3>
+    <div class="input-group">
+      <input v-model="aergo_burn_tokenId" type="text" class="form-text" placeholder="ARC-2 NFT ID to Transfer (Same with ERC-721)">
+      <input v-model="eth_receiver" type="text" class="form-text" placeholder="Receiver Ethereum Address">
+      <span class="input-group-btn">
+        <button class="btn btn-default" type="button">Burn ARC-2</button>
+      </span>
+    </div>
+    <h3>Unlock ERC-721 from Eth Merkle Bridge</h3>
+    <div class="input-group">
+      <input v-model="aergo_burn_tokenId" type="text" class="form-text" placeholder="ERC-721 NFT ID to Transfer (Same with ERC-721)">
+      <input v-model="eth_receiver" type="text" class="form-text" placeholder="Receiver Ethereum Address"><br/>
+      <input v-model="aergo_burn_blockheight" type="text" class="form-text" placeholder="Lock Block Height on Ethereum">
+      <span class="input-group-btn">
+        <button class="btn btn-default" type="button">Unlock ERC-721</button>
+      </span>
+    </div>
+
+
   </div>
+
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue';
 import { AergoClient, GrpcWebProvider, Contract } from "@herajs/client";
 import { aergoBridgeAbi } from "./AergoBridge";
 
@@ -58,7 +95,6 @@ import { aergoBridgeAbi } from "./AergoBridge";
 export default {
   name: 'App',
   components: {
-    HelloWorld
   }
 }
 
@@ -69,8 +105,17 @@ export default {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
+  text-align: left;
   color: #2c3e50;
   margin-top: 60px;
+  width: 800px;
+}
+.input-group {
+  margin-bottom:50px;
+  width: 100%;
+}
+.form-text {
+  width: 100%;
+  background-color: "red";
 }
 </style>
