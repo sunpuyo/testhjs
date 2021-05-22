@@ -1,38 +1,38 @@
 <template>
+  <center>
   <div id="app">
     <h2>Ethereum to Aergo</h2>
-    <h3>Lock ERC-721 to Eth Merkle Bridge</h3>
-    <div class="input-group">
-      <input v-model="eth_lock_tokenId" type="text" class="form-text" placeholder="ERC-721 NFT ID to Transfer">
-      <input v-model="aergo_receiver" type="text" class="form-text" placeholder="Receiver Aergo Address">
-      <span class="input-group-btn">
-        <button class="btn btn-default" type="button">Lock ERC-721</button>
-      </span>
-    </div>
+    <h3>Lock ERC-721 NFT to Eth Merkle Bridge</h3>
+    Send ERC-721 token to Eth Merkle Bridge (ADDRESS) with Calldata
+    Example...
+
+
     <h3>Mint ARC-2 from Aergo Merkle Bridge</h3>
-    <div class="input-group">
-      <input v-model="eth_lock_tokenId" type="text" class="form-text" placeholder="ERC-721 NFT ID to Transfer">
-      <input v-model="aergo_receiver" type="text" class="form-text" placeholder="Receiver Aergo Address"><br/>
-      <input v-model="eth_lock_blockheight" type="text" class="form-text" placeholder="Lock Block Height on Ethereum">
-      <span class="input-group-btn">
-        <button class="btn btn-default" type="button">MINT ARC-2</button>
-      </span>
-    </div>
+    <form id="myForm" @submit.prevent="getAergoActiveAccount">
+      <button>Connect to Aergo</button>
+    </form>
+    <form id="myForm" @submit.prevent="sendPost">
+      <v-content class="labeled-text">
+        <label>ERC-721 NFT Contract Address</label> <input type="text" v-model="eth_lock_nft_addr"><br>
+      </v-content>
+      <v-content class="labeled-text">
+        <label>ERC-721 NFT ID to Transfer</label> <input type="text" v-model="eth_lock_tokenId"><br>
+      </v-content>
+      <v-content class="labeled-text">
+        <label>Receiver Aergo Address</label> <input type="text" v-model="receiverAergoAddr"><br>
+      </v-content>
+      <button>MINT ARC-2</button>
+    </form>
     
     <h2>Aergo to Ethereum</h2>
     <h3>Burn ARC-2 on Aergo Merkle Bridge</h3>
-    <div class="input-group">
-      <input v-model="aergo_burn_tokenId" type="text" class="form-text" placeholder="ARC-2 NFT ID to Transfer (Same with ERC-721)">
-      <input v-model="eth_receiver" type="text" class="form-text" placeholder="Receiver Ethereum Address">
-      <span class="input-group-btn">
-        <button class="btn btn-default" type="button">Burn ARC-2</button>
-      </span>
-    </div>
+    Send ARC-2 NFT to Aergo Merkle Bridge (ADDRESS) with Calldata
+    Example...
+
     <h3>Unlock ERC-721 from Eth Merkle Bridge</h3>
     <div class="input-group">
       <input v-model="aergo_burn_tokenId" type="text" class="form-text" placeholder="ERC-721 NFT ID to Transfer (Same with ERC-721)">
       <input v-model="eth_receiver" type="text" class="form-text" placeholder="Receiver Ethereum Address"><br/>
-      <input v-model="aergo_burn_blockheight" type="text" class="form-text" placeholder="Lock Block Height on Ethereum">
       <span class="input-group-btn">
         <button class="btn btn-default" type="button">Unlock ERC-721</button>
       </span>
@@ -40,12 +40,22 @@
 
 
   </div>
-
+  </center>
 </template>
 
 <script>
 import { AergoClient, GrpcWebProvider, Contract } from "@herajs/client";
-import { aergoBridgeAbi } from "./AergoBridge";
+import { ethToAergo } from "eth-merkle-bridge-js"; //aergoToEth
+import { aergoBridgeAbi } from "./common/AergoBridge";
+import { web3, updateDefaultAccount } from "./common/Web3Loader";
+import { sendTxToAergoConnect } from "./common/util";
+
+const bridgeAergoAddr = "AmhAMtqsrf4akxMy89fhiNuyw7u7ooY9TV6Ke5FFctDYpFVAB44V";
+const aergoURL = "http://localhost:7845";
+const bridgeEthAddr = "0x89eD1D1C145F6bF3A7e62d2B8eB0e1Bf15Cb2374";
+//const ethURL = "http://localhost:8545";
+
+
 
 (async () => {
     try {
@@ -95,6 +105,77 @@ import { aergoBridgeAbi } from "./AergoBridge";
 export default {
   name: 'App',
   components: {
+  },
+  data: () => ({
+    eth_lock_tokenId: '1',
+    eth_lock_nft_addr: '0x6Bba61e44686f336f4b5A546f4475be1449e7Ee6',
+    receiverAergoAddr: 'AmMMvPuthQZPybWr5amX7rd14Nf6mfmgG7XQxTbA1mFFaKHB5Bx1',
+    aergo_burn_tokenId: '',
+    eth_receiver: '',
+
+    etheraccount: null,
+    aergoaccount: null
+  }),
+   methods: {
+    sendPost: async function () {
+      try {
+        let hera = new AergoClient({}, new GrpcWebProvider({ url: aergoURL }));
+      
+        await ethToAergo.validateARC2mintable(
+          web3,
+          hera,
+          bridgeEthAddr,
+          bridgeAergoAddr,
+          this.receiverAergoAddr,
+          this.eth_lock_tokenId,
+          this.eth_lock_nft_addr,
+       );
+        
+        const builtTx = await ethToAergo.buildUnlockERC721Tx(
+          web3,
+          hera,
+          this.aergoaccount.address,
+          bridgeEthAddr,
+          bridgeAergoAddr, 
+          aergoBridgeAbi, //최신화
+          this.receiverAergoAddr,
+          this.eth_lock_tokenId,
+          this.eth_lock_nft_addr
+        );
+
+        console.log(await sendTxToAergoConnect(hera, bridgeAergoAddr, builtTx));
+
+      } catch (e) {
+        alert(e); 
+      }
+    },
+    sendReserved: async function() {
+      this.connectMetamask();
+    },
+    getAergoActiveAccount() {
+      window.addEventListener("AERGO_ACTIVE_ACCOUNT", event => {
+        if(event.detail.error) {
+          console.log(event.detail.error)
+          return;
+        }
+        console.log('login to aergo: ', event.detail.account);
+        this.aergoaccount = event.detail.account;
+      });
+      window.postMessage({
+        type: "AERGO_REQUEST",
+        action: "ACTIVE_ACCOUNT"
+      });
+    },
+    connectMetamask() {
+      window.ethereum.enable();
+    }
+  },
+  created() {
+    // set ethereum account change listener
+    web3.currentProvider.connection.publicConfigStore.on("update", account => {
+      this.etheraccount = account;
+      updateDefaultAccount(account.selectedAddress);
+    });
   }
 }
 
@@ -110,12 +191,14 @@ export default {
   margin-top: 60px;
   width: 800px;
 }
-.input-group {
-  margin-bottom:50px;
-  width: 100%;
+.labeled-text {
+  margin-bottom: 50px;
 }
-.form-text {
-  width: 100%;
-  background-color: "red";
+.labeled-text label {
+  width: 30%;
+  display: inline-block;
+}
+.labeled-text input {
+  width: 65%;
 }
 </style>
