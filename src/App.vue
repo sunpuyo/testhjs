@@ -11,7 +11,7 @@
     <form id="myForm" @submit.prevent="getAergoActiveAccount">
       <button>Connect to Aergo</button>
     </form>
-    <form id="myForm" @submit.prevent="sendPost">
+    <form id="myForm" @submit.prevent="sendMintOnAergoReq">
       <v-content class="labeled-text">
         <label>ERC-721 NFT Contract Address</label> <input type="text" v-model="eth_lock_nft_addr"><br>
       </v-content>
@@ -19,24 +19,29 @@
         <label>ERC-721 NFT ID to Transfer</label> <input type="text" v-model="eth_lock_tokenId"><br>
       </v-content>
       <v-content class="labeled-text">
-        <label>Receiver Aergo Address</label> <input type="text" v-model="receiverAergoAddr"><br>
+        <label>Receiver Aergo Address</label> <input type="text" v-model="aergo_receiver"><br>
       </v-content>
       <button>MINT ARC-2</button>
     </form>
     
     <h2>Aergo to Ethereum</h2>
     <h3>Burn ARC-2 on Aergo Merkle Bridge</h3>
-    Send ARC-2 NFT to Aergo Merkle Bridge (ADDRESS) with Calldata
-    Example...
+    Send ARC-2 NFT to Aergo Merkle Bridge (ADDRESS) with a receiver address on ethereum at Calldata 
+    <br/> ethereum address format on calldata must be without 0x and lowercase.
 
-    <h3>Unlock ERC-721 from Eth Merkle Bridge</h3>
-    <div class="input-group">
-      <input v-model="aergo_burn_tokenId" type="text" class="form-text" placeholder="ERC-721 NFT ID to Transfer (Same with ERC-721)">
-      <input v-model="eth_receiver" type="text" class="form-text" placeholder="Receiver Ethereum Address"><br/>
-      <span class="input-group-btn">
-        <button class="btn btn-default" type="button">Unlock ERC-721</button>
-      </span>
-    </div>
+    <h3>Unlock ERC-721 from Ether Merkle Bridge</h3>
+    <form id="myForm" @submit.prevent="sendUnlockOnEthReq">
+      <v-content class="labeled-text">
+        <label>ERC-721 NFT Contract Address</label> <input type="text" v-model="eth_lock_nft_addr"><br>
+      </v-content>
+      <v-content class="labeled-text">
+        <label>ERC-721 NFT ID to Transfer</label> <input type="text" v-model="eth_lock_tokenId"><br>
+      </v-content>
+      <v-content class="labeled-text">
+        <label>Receiver Ethereum Address</label> <input type="text" v-model="eth_receiver"><br>
+      </v-content>
+      <button>Unlock ERC-721</button>
+    </form>
 
 
   </div>
@@ -45,7 +50,7 @@
 
 <script>
 import { AergoClient, GrpcWebProvider, Contract } from "@herajs/client";
-import { ethToAergo } from "eth-merkle-bridge-js"; //aergoToEth
+import { aergoToEth, ethToAergo } from "eth-merkle-bridge-js"; //aergoToEth
 import { aergoBridgeAbi } from "./common/AergoBridge";
 import { web3, updateDefaultAccount } from "./common/Web3Loader";
 import { sendTxToAergoConnect } from "./common/util";
@@ -53,53 +58,6 @@ import { sendTxToAergoConnect } from "./common/util";
 const bridgeAergoAddr = "AmhAMtqsrf4akxMy89fhiNuyw7u7ooY9TV6Ke5FFctDYpFVAB44V";
 const aergoURL = "http://localhost:7845";
 const bridgeEthAddr = "0x89eD1D1C145F6bF3A7e62d2B8eB0e1Bf15Cb2374";
-//const ethURL = "http://localhost:8545";
-
-
-
-(async () => {
-    try {
-        // fetch a previous block hash
-        const fromBridgeAergoAddr = "Amgru14RQMrwRM8TnnLrT3aa3TePJr2F4yfbqN81KffkXKXbw4oz";
-
-        let fromHerajs = new AergoClient(
-            {},
-            new GrpcWebProvider({ url: 'https://alpha-api-http.aergo.io'})
-          );
-        let toHerajs = new AergoClient(
-            {},
-            new GrpcWebProvider({ url: 'https://testnet-api-http.aergo.io'})
-          );
-
-        const toContract = Contract.fromAbi(aergoBridgeAbi).setAddress(fromBridgeAergoAddr);
-        let query = toContract.queryState("_sv__anchorHeight");
-        const lastMergedHeight = await toHerajs.queryContractState(query); // get last anchoring height
-        console.log('Get last merged height: ', lastMergedHeight);
-
-        // get last anchoring block
-        const mergeBlockHeader = await fromHerajs.getBlockHeaders(lastMergedHeight, 1)
-        const rootFrom = Buffer.from(mergeBlockHeader[0].header.blocksroothash, 'base64')
-
-        // fetch freeze states from contract 
-        const freezesKey = Buffer.from('_sv__freezes-'.concat("AmPXCFudjn399bVXr6Fcwmvb7gVmUjjK7KpoAy9bnmEryJ1aBNkT"), 'utf-8');
-
-        const fromContract = Contract.fromAbi(aergoBridgeAbi).setAddress(fromBridgeAergoAddr);
-
-        query = fromContract.queryState(freezesKey); // query current state
-
-        const working_proof = await fromHerajs.queryContractStateProof(query); // this works well
-        console.log('This works well', working_proof);
-
-        query = fromContract.queryState(freezesKey, false, rootFrom); // query past state with rootFrom
-        // FIXME this raises timeout exception. Maybe it is not work
-        const timeout_proof = await fromHerajs.queryContractStateProof(query); 
-
-        console.log("This raise timeout exception", timeout_proof);
-
-    } catch (e) {
-        console.error(e);
-    }
-})();
 
 
 export default {
@@ -109,24 +67,23 @@ export default {
   data: () => ({
     eth_lock_tokenId: '1',
     eth_lock_nft_addr: '0x6Bba61e44686f336f4b5A546f4475be1449e7Ee6',
-    receiverAergoAddr: 'AmMMvPuthQZPybWr5amX7rd14Nf6mfmgG7XQxTbA1mFFaKHB5Bx1',
-    aergo_burn_tokenId: '',
-    eth_receiver: '',
+    aergo_receiver: 'AmMMvPuthQZPybWr5amX7rd14Nf6mfmgG7XQxTbA1mFFaKHB5Bx1',
+    eth_receiver: '0x035d4303f9508ddcab6d074cbc5ed82cd0b436ad',
 
     etheraccount: null,
     aergoaccount: null
   }),
    methods: {
-    sendPost: async function () {
+    sendMintOnAergoReq: async function () {
       try {
         let hera = new AergoClient({}, new GrpcWebProvider({ url: aergoURL }));
       
-        await ethToAergo.validateARC2mintable(
+        await ethToAergo.validateARC2Mintable(
           web3,
           hera,
           bridgeEthAddr,
           bridgeAergoAddr,
-          this.receiverAergoAddr,
+          this.aergo_receiver,
           this.eth_lock_tokenId,
           this.eth_lock_nft_addr,
        );
@@ -138,12 +95,34 @@ export default {
           bridgeEthAddr,
           bridgeAergoAddr, 
           aergoBridgeAbi, //최신화
-          this.receiverAergoAddr,
+          this.aergo_receiver,
           this.eth_lock_tokenId,
           this.eth_lock_nft_addr
         );
 
         console.log(await sendTxToAergoConnect(hera, bridgeAergoAddr, builtTx));
+
+      } catch (e) {
+        alert(e); 
+      }
+    },
+    sendUnlockOnEthReq: async function() {
+      try {
+        let hera = new AergoClient({}, new GrpcWebProvider({ url: aergoURL }));
+        
+        await this.connectMetamask();
+
+        await aergoToEth.validateERC721Unlockable(
+          web3,
+          hera,
+          bridgeEthAddr,
+          bridgeAergoAddr,
+          this.eth_receiver,
+          this.eth_lock_tokenId, 
+          this.eth_lock_nft_addr, 
+        );
+  
+        // TODO create unlock tx
 
       } catch (e) {
         alert(e); 
