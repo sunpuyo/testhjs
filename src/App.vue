@@ -8,19 +8,16 @@
 
 
     <h3>Mint ARC-2 from Aergo Merkle Bridge</h3>
-    <form id="myForm" @submit.prevent="getAergoActiveAccount">
-      <button>Connect to Aergo</button>
-    </form>
     <form id="myForm" @submit.prevent="sendMintOnAergoReq">
-      <v-content class="labeled-text">
+      <div class="labeled-text">
         <label>ERC-721 NFT Contract Address</label> <input type="text" v-model="eth_lock_nft_addr"><br>
-      </v-content>
-      <v-content class="labeled-text">
+      </div>
+      <div class="labeled-text">
         <label>ERC-721 NFT ID to Transfer</label> <input type="text" v-model="eth_lock_tokenId"><br>
-      </v-content>
-      <v-content class="labeled-text">
+      </div>
+      <div class="labeled-text">
         <label>Receiver Aergo Address</label> <input type="text" v-model="aergo_receiver"><br>
-      </v-content>
+      </div>
       <button>MINT ARC-2</button>
     </form>
     
@@ -31,15 +28,15 @@
 
     <h3>Unlock ERC-721 from Ether Merkle Bridge</h3>
     <form id="myForm" @submit.prevent="sendUnlockOnEthReq">
-      <v-content class="labeled-text">
+      <div class="labeled-text">
         <label>ERC-721 NFT Contract Address</label> <input type="text" v-model="eth_lock_nft_addr"><br>
-      </v-content>
-      <v-content class="labeled-text">
+      </div>
+      <div class="labeled-text">
         <label>ERC-721 NFT ID to Transfer</label> <input type="text" v-model="eth_lock_tokenId"><br>
-      </v-content>
-      <v-content class="labeled-text">
+      </div>
+      <div class="labeled-text">
         <label>Receiver Ethereum Address</label> <input type="text" v-model="eth_receiver"><br>
-      </v-content>
+      </div>
       <button>Unlock ERC-721</button>
     </form>
 
@@ -49,9 +46,10 @@
 </template>
 
 <script>
-import { AergoClient, GrpcWebProvider, Contract } from "@herajs/client";
+import { AergoClient, GrpcWebProvider } from "@herajs/client";
 import { aergoToEth, ethToAergo } from "eth-merkle-bridge-js"; //aergoToEth
 import { aergoBridgeAbi } from "./common/AergoBridge";
+import { etherBridgeAbi } from "./common/EtherBridge";
 import { web3, updateDefaultAccount } from "./common/Web3Loader";
 import { sendTxToAergoConnect } from "./common/util";
 
@@ -103,6 +101,7 @@ export default {
         console.log(await sendTxToAergoConnect(hera, bridgeAergoAddr, builtTx));
 
       } catch (e) {
+        console.error(e);
         alert(e); 
       }
     },
@@ -123,13 +122,22 @@ export default {
         );
   
         // TODO create unlock tx
+        await aergoToEth.unlockERC721(
+          web3,
+          hera, 
+          bridgeEthAddr,
+          etherBridgeAbi,
+          bridgeAergoAddr,
+          this.eth_receiver,
+          this.eth_lock_tokenId, 
+          this.eth_lock_nft_addr
+        );
+
 
       } catch (e) {
+        console.error(e);
         alert(e); 
       }
-    },
-    sendReserved: async function() {
-      this.connectMetamask();
     },
     getAergoActiveAccount() {
       window.addEventListener("AERGO_ACTIVE_ACCOUNT", event => {
@@ -147,14 +155,15 @@ export default {
     },
     connectMetamask() {
       window.ethereum.enable();
+      this.etheraccount = window.ethereum.selectedAddress;
+      updateDefaultAccount(window.ethereum.selectedAddress);
     }
   },
   created() {
     // set ethereum account change listener
-    web3.currentProvider.connection.publicConfigStore.on("update", account => {
-      this.etheraccount = account;
-      updateDefaultAccount(account.selectedAddress);
-    });
+    if (typeof window.ethereum == 'undefined') {
+      alert('Please install Metamask first');
+    }
   }
 }
 
