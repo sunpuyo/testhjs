@@ -8,7 +8,7 @@
 
 
     <h3>Mint ARC-2 from Aergo Merkle Bridge</h3>
-    <form id="myForm" @submit.prevent="sendMintOnAergoReq">
+    <form id="mintForm" @submit.prevent="sendMintOnAergoReq">
       <div class="labeled-text">
         <label>ERC-721 NFT Contract Address</label> <input type="text" v-model="eth_lock_nft_addr"><br>
       </div>
@@ -27,7 +27,7 @@
     <br/> ethereum address format on calldata must be without 0x and lowercase.
 
     <h3>Unlock ERC-721 from Ether Merkle Bridge</h3>
-    <form id="myForm" @submit.prevent="sendUnlockOnEthReq">
+    <form id="unlockForm" @submit.prevent="sendUnlockOnEthReq">
       <div class="labeled-text">
         <label>ERC-721 NFT Contract Address</label> <input type="text" v-model="eth_lock_nft_addr"><br>
       </div>
@@ -74,6 +74,10 @@ export default {
    methods: {
     sendMintOnAergoReq: async function () {
       try {
+        if(! this.aergoaccount) {
+          // login to aergo connect
+          this.aergoaccount = await this.getAergoActiveAccount()
+        }
         let hera = new AergoClient({}, new GrpcWebProvider({ url: aergoURL }));
       
         await ethToAergo.validateARC2Mintable(
@@ -110,7 +114,6 @@ export default {
         let hera = new AergoClient({}, new GrpcWebProvider({ url: aergoURL }));
         
         await this.connectMetamask();
-
         await aergoToEth.validateERC721Unlockable(
           web3,
           hera,
@@ -121,8 +124,7 @@ export default {
           this.eth_lock_nft_addr, 
         );
   
-        // TODO create unlock tx
-        await aergoToEth.unlockERC721(
+        const ret = await aergoToEth.unlockERC721(
           web3,
           hera, 
           bridgeEthAddr,
@@ -133,28 +135,36 @@ export default {
           this.eth_lock_nft_addr
         );
 
+        console.log(ret);
 
       } catch (e) {
         console.error(e);
-        alert(e); 
+        if(typeof(e) == 'string') {
+          alert(e); 
+        } else {
+          alert(JSON.stringify(e)); 
+        }
       }
     },
-    getAergoActiveAccount() {
-      window.addEventListener("AERGO_ACTIVE_ACCOUNT", event => {
-        if(event.detail.error) {
-          console.log(event.detail.error)
-          return;
-        }
-        console.log('login to aergo: ', event.detail.account);
-        this.aergoaccount = event.detail.account;
-      });
-      window.postMessage({
-        type: "AERGO_REQUEST",
-        action: "ACTIVE_ACCOUNT"
+    getAergoActiveAccount: async function () {
+      return new Promise(function(resolve, reject) {
+        window.addEventListener("AERGO_ACTIVE_ACCOUNT", event => {
+            if(event.detail.error) {
+              console.error(event.detail.error);
+              reject(event.detail.error);
+            }
+            console.log('login to aergo: ', event.detail.account);
+            
+            resolve(event.detail.account);
+          });
+          window.postMessage({
+            type: "AERGO_REQUEST",
+            action: "ACTIVE_ACCOUNT"
+          });
       });
     },
-    connectMetamask() {
-      window.ethereum.enable();
+    connectMetamask: async function () {
+      await window.ethereum.enable();
       this.etheraccount = window.ethereum.selectedAddress;
       updateDefaultAccount(window.ethereum.selectedAddress);
     }
